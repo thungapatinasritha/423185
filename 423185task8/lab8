@@ -1,0 +1,107 @@
+#!/bin/bash
+
+# Function to check if gdb is installed
+check_gdb_installed() {
+    echo "Checking if gdb is installed..."
+    if ! command -v gdb &> /dev/null
+    then
+        echo "gdb could not be found, please install gdb first."
+        exit 1
+    fi
+}
+
+# Function to check if gcc is installed
+check_gcc_installed() {
+    echo "Checking if gcc is installed..."
+    if ! command -v gcc &> /dev/null
+    then
+        echo "gcc could not be found, please install gcc first."
+        exit 1
+    fi
+}
+
+# Function to compile the C program with debugging symbols
+compile_program() {
+    echo "Compiling C program with debugging symbols..."
+
+    # Create a sample C program if it doesn't exist
+    if [ ! -f "program.c" ]; then
+        cat > program.c <<EOL
+#include <stdio.h>
+
+void cause_segfault() {
+    int *p = NULL;
+    *p = 42;  // This will cause a segmentation fault (segfault)
+}
+
+int main() {
+    printf("Starting program...\n");
+    cause_segfault();
+    return 0;
+}
+EOL
+        echo "Created a sample program.c to demonstrate debugging."
+    fi
+
+    # Compile the program with debugging symbols (-g)
+    gcc -g -o program program.c
+    if [ $? -eq 0 ]; then
+        echo "Program compiled successfully."
+    else
+        echo "Compilation failed!"
+        exit 1
+    fi
+}
+
+# Function to generate a core dump
+generate_core_dump() {
+    echo "Generating a core dump..."
+    
+    # Allow core dumps to be created by setting the ulimit
+    ulimit -c unlimited
+    
+    # Run the program which will cause a segmentation fault
+    ./program
+    
+    # Check if a core dump is created
+    if [ -f "core" ]; then
+        echo "Core dump created successfully: core"
+    else
+        echo "Core dump not created. Please ensure core dumps are enabled."
+        exit 1
+    fi
+}
+
+# Function to debug the core dump using gdb
+debug_core_dump() {
+    echo "Debugging the core dump with gdb..."
+    
+    # Run gdb with the program and core dump
+    gdb ./program core
+    
+    # Instructions to interact with gdb
+    echo "You can use the following commands within gdb:"
+    echo "  - 'bt' for backtrace"
+    echo "  - 'info locals' for local variables"
+    echo "  - 'quit' to exit gdb"
+}
+
+# Main function to execute the script
+main() {
+    # Check if necessary tools are installed
+    check_gdb_installed
+    check_gcc_installed
+    
+    # Compile the program with debugging symbols
+    compile_program
+    
+    # Generate a core dump
+    generate_core_dump
+    
+    # Debug the core dump with gdb
+    debug_core_dump
+}
+
+# Run the main function
+main
+

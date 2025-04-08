@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# Function to check if the system is Debian-based or Red Hat-based
+detect_distro() {
+    if [ -f /etc/debian_version ]; then
+        DISTRO="debian"
+    elif [ -f /etc/redhat-release ]; then
+        DISTRO="redhat"
+    else
+        echo "Unknown distribution. Cannot determine package manager."
+        exit 1
+    fi
+}
+
+# Function to install .deb packages using dpkg and apt
+install_deb_package() {
+    echo "Detected Debian-based system. Installing .deb package..."
+
+    # Install the .deb package using dpkg
+    sudo dpkg -i $1
+    
+    # Resolve any dependencies using apt-get
+    sudo apt-get install -f
+}
+
+# Function to install .rpm packages using rpm or dnf/yum (depending on distro version)
+install_rpm_package() {
+    echo "Detected Red Hat-based system. Installing .rpm package..."
+    
+    if command -v dnf &> /dev/null; then
+        # For newer Red Hat/CentOS (dnf)
+        sudo dnf install $1 -y
+    elif command -v yum &> /dev/null; then
+        # For older Red Hat/CentOS (yum)
+        sudo yum install $1 -y
+    elif command -v rpm &> /dev/null; then
+        # For rpm-based systems
+        sudo rpm -i $1
+    else
+        echo "No suitable package manager found for RPM-based system."
+        exit 1
+    fi
+}
+
+# Function to install a package using apt (for Debian-based systems)
+install_apt_package() {
+    echo "Detected Debian-based system. Installing package with apt..."
+
+    sudo apt-get update
+    sudo apt-get install -y $1
+}
+
+# Function to install a package using yum/dnf (for Red Hat-based systems)
+install_yum_package() {
+    echo "Detected Red Hat-based system. Installing package with yum/dnf..."
+
+    if command -v dnf &> /dev/null; then
+        # For newer Red Hat/CentOS (dnf)
+        sudo dnf install $1 -y
+    elif command -v yum &> /dev/null; then
+        # For older Red Hat/CentOS (yum)
+        sudo yum install $1 -y
+    else
+        echo "No suitable package manager found for RPM-based system."
+        exit 1
+    fi
+}
+
+# Main function to install packages based on distribution and format
+install_package() {
+    # Detect the distribution
+    detect_distro
+
+    # Install the correct package
+    if [ "$DISTRO" == "debian" ]; then
+        # If the file is a .deb package
+        if [[ $1 == *.deb ]]; then
+            install_deb_package $1
+        else
+            install_apt_package $1
+        fi
+    elif [ "$DISTRO" == "redhat" ]; then
+        # If the file is an .rpm package
+        if [[ $1 == *.rpm ]]; then
+            install_rpm_package $1
+        else
+            install_yum_package $1
+        fi
+    fi
+}
+
+# Check if the script is run with a package file or package name
+if [ -z "$1" ]; then
+    echo "Usage: $0 <package_file_or_package_name>"
+    echo "Example 1: $0 mypackage.deb"
+    echo "Example 2: $0 mypackage"
+    exit 1
+fi
+
+# Run the installation
+install_package $1
+
